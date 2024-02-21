@@ -23,21 +23,21 @@ curl -O https://raw.githubusercontent.com/koga436/debaws/main/script.sh
 
 Em seguida, você precisa tornar o script executável. Você pode fazer isso com o comando `chmod`:
 
-\`\`\`bash
+```bash
 chmod +x script.sh
-\`\`\`
+```
 
 Agora você pode executar o script. Durante a execução, o script fará várias perguntas para personalizar a configuração. Se você quiser executar o script silenciosamente com todas as opções padrão, use o seguinte comando:
 
-\`\`\`bash
+```bash
 ./script.sh -s
-\`\`\`
+```
 
 Se você quiser executar o script com entrada do usuário, use o seguinte comando:
 
-\`\`\`bash
+```bash
 ./script.sh
-\`\`\`
+```
 
 ## Opções Padrão
 
