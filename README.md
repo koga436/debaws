@@ -15,7 +15,7 @@ Este script bash automatiza a configuração de um novo servidor Debian. Ele foi
 
 ## Uso
 
-Primeiro, você precisa baixar o script. Você pode fazer isso usando o comando `curl`.
+Primeiro, você precisa baixar o script. Você pode fazer isso usando o comando `curl`:
 
 \`\`\`bash
 curl -O https://raw.githubusercontent.com/koga436/debaws/main/script.sh
@@ -38,7 +38,6 @@ Se você quiser executar o script com entrada do usuário, use o seguinte comand
 \`\`\`bash
 ./script.sh
 \`\`\`
-
 
 ## Opções Padrão
 
