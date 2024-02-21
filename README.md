@@ -17,9 +17,9 @@ Este script bash automatiza a configuração de um novo servidor Debian. Ele foi
 
 Primeiro, você precisa baixar o script. Você pode fazer isso usando o comando `curl`:
 
-\`\`\`bash
+```bash
 curl -O https://raw.githubusercontent.com/koga436/debaws/main/script.sh
-\`\`\`
+```
 
 Em seguida, você precisa tornar o script executável. Você pode fazer isso com o comando `chmod`:
 
