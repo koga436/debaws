@@ -1,15 +1,17 @@
 # Variáveis padrão
-DEFAULT_ROOT_PASSWORD="_SUA_SENHA_AQUI_"
+DEFAULT_ROOT_PASSWORD="SUA_SENHA_AQUI"
 DEFAULT_INSTALL_APPS="yes"
 DEFAULT_ADD_PROXY="yes"
 DEFAULT_CHANGE_TZ="yes"
-DEFAULT_INSTALL_NFS="no"
+DEFAULT_INSTALL_NFS="none"
 DEFAULT_NETWORK_IP=""
 DEFAULT_SERVER_IP=""
 DEFAULT_INSTALL_DOCKER="yes"
+DEFAULT_NFS_SERVER_PATH="/mnt/shared"  # Adicionado
+DEFAULT_NFS_CLIENT_PATH="/mnt/nfs"  # Adicionado
 
 # Pergunta ao usuário se o script deve ser executado silenciosamente
-read -p "Executar silenciosamente? (s/n) - Para executar silenciosamente altere os valores DEFAULT no script!" SILENT
+read -p "Executar silenciosamente? (s/n) " SILENT
 if [[ "$SILENT" =~ ^[Ss]$ ]]
 then
     ROOT_PASSWORD=$DEFAULT_ROOT_PASSWORD
@@ -19,7 +21,9 @@ then
     INSTALL_NFS=$DEFAULT_INSTALL_NFS
     NETWORK_IP=$DEFAULT_NETWORK_IP
     SERVER_IP=$DEFAULT_SERVER_IP
-    INSTALL_DOCKER=$DEFAULT_INSTALL_DOCKER  # Adicionado
+    INSTALL_DOCKER=$DEFAULT_INSTALL_DOCKER
+    NFS_SERVER_PATH=$DEFAULT_NFS_SERVER_PATH  # Adicionado
+    NFS_CLIENT_PATH=$DEFAULT_NFS_CLIENT_PATH  # Adicionado
 else
     read -p "Senha do root (padrão: $DEFAULT_ROOT_PASSWORD): " ROOT_PASSWORD
     ROOT_PASSWORD=${ROOT_PASSWORD:-$DEFAULT_ROOT_PASSWORD}
@@ -33,11 +37,29 @@ else
     read -p "Mudar TZ para São Paulo? (s/n, padrão: $DEFAULT_CHANGE_TZ) " CHANGE_TZ
     CHANGE_TZ=${CHANGE_TZ:-$DEFAULT_CHANGE_TZ}
 
-    read -p "Instalar NFS? (s/n, padrão: $DEFAULT_INSTALL_NFS) " INSTALL_NFS
+    read -p "Instalar NFS? (server/client/both/none, padrão: $DEFAULT_INSTALL_NFS) " INSTALL_NFS
     INSTALL_NFS=${INSTALL_NFS:-$DEFAULT_INSTALL_NFS}
 
-    read -p "Instalar Docker? (s/n, padrão: $DEFAULT_INSTALL_DOCKER) " INSTALL_DOCKER  # Adicionado
-    INSTALL_DOCKER=${INSTALL_DOCKER:-$DEFAULT_INSTALL_DOCKER}  # Adicionado
+    if [[ "$INSTALL_NFS" =~ ^(server|both)$ ]]
+    then
+        read -p "IP da rede (padrão: $DEFAULT_NETWORK_IP): " NETWORK_IP
+        NETWORK_IP=${NETWORK_IP:-$DEFAULT_NETWORK_IP}
+
+        read -p "Caminho do servidor NFS (padrão: $DEFAULT_NFS_SERVER_PATH): " NFS_SERVER_PATH  # Adicionado
+        NFS_SERVER_PATH=${NFS_SERVER_PATH:-$DEFAULT_NFS_SERVER_PATH}  # Adicionado
+    fi
+
+    if [[ "$INSTALL_NFS" =~ ^(client|both)$ ]]
+    then
+        read -p "IP do servidor (padrão: $DEFAULT_SERVER_IP): " SERVER_IP
+        SERVER_IP=${SERVER_IP:-$DEFAULT_SERVER_IP}
+
+        read -p "Caminho do cliente NFS (padrão: $DEFAULT_NFS_CLIENT_PATH): " NFS_CLIENT_PATH  # Adicionado
+        NFS_CLIENT_PATH=${NFS_CLIENT_PATH:-$DEFAULT_NFS_CLIENT_PATH}  # Adicionado
+    fi
+
+    read -p "Instalar Docker? (s/n, padrão: $DEFAULT_INSTALL_DOCKER) " INSTALL_DOCKER
+    INSTALL_DOCKER=${INSTALL_DOCKER:-$DEFAULT_INSTALL_DOCKER}
 fi
 
 # Atualiza o sistema
@@ -90,30 +112,36 @@ then
     sudo timedatectl set-timezone America/Sao_Paulo
 fi
 
-# Instala o Docker, se necessário  # Adicionado
-if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]  # Adicionado
-then  # Adicionado
+# Instala o Docker, se necessário
+if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]
+then
     curl -fsSL https://get.docker.com -o get-docker.sh
     sudo sh get-docker.sh
-fi  # Adicionado
+fi
 
 # Instala e configura o NFS, se necessário
-if [[ "$INSTALL_NFS" =~ ^[Ss]$ ]]
+if [[ "$INSTALL_NFS" =~ ^(server|both)$ ]]
 then
-    # Instala o NFS Server e o NFS Client
-    sudo apt install -y nfs-kernel-server nfs-common
+    # Instala o NFS Server
+    sudo apt install -y nfs-kernel-server
 
     # Configura o servidor NFS
-    sudo mkdir -p /mnt/shared
-    echo "/mnt/shared $NETWORK_IP(rw,sync,no_subtree_check,all_squash)" | sudo tee -a /etc/exports
+    sudo mkdir -p $NFS_SERVER_PATH  # Alterado para usar a variável NFS_SERVER_PATH
+    echo "$NFS_SERVER_PATH $NETWORK_IP(rw,sync,no_subtree_check,all_squash)" | sudo tee -a /etc/exports
     sudo exportfs -a
     sudo systemctl restart nfs-kernel-server
-    sudo chown nobody:nogroup /mnt/shared
-    sudo chmod 777 /mnt/shared
+    sudo chown nobody:nogroup $NFS_SERVER_PATH  # Alterado para usar a variável NFS_SERVER_PATH
+    sudo chmod 777 $NFS_SERVER_PATH  # Alterado para usar a variável NFS_SERVER_PATH
+fi
+
+if [[ "$INSTALL_NFS" =~ ^(client|both)$ ]]
+then
+    # Instala o NFS Client
+    sudo apt install -y nfs-common
 
     # Configura o cliente NFS
-    sudo mkdir -p /mnt/nfs
-    echo "$SERVER_IP:/mnt/shared /mnt/nfs nfs rw,defaults 0 0" | sudo tee -a /etc/fstab
+    sudo mkdir -p $NFS_CLIENT_PATH  # Alterado para usar a variável NFS_CLIENT_PATH
+    echo "$SERVER_IP:$NFS_SERVER_PATH $NFS_CLIENT_PATH nfs rw,defaults 0 0" | sudo tee -a /etc/fstab  # Alterado para usar as variáveis NFS_SERVER_PATH e NFS_CLIENT_PATH
     sudo mount -a
 fi
 
