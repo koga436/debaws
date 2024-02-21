@@ -1,18 +1,18 @@
 #!/bin/bash
 
 # Variáveis padrão
-DEFAULT_ROOT_PASSWORD="SUA_SENHA_AQUI"
-DEFAULT_INSTALL_APPS="yes"
-DEFAULT_ADD_PROXY="yes"
-DEFAULT_CHANGE_TZ="yes"
+DEFAULT_ROOT_PASSWORD="_SUA_SENHA_AQUI_"
+DEFAULT_INSTALL_APPS="sim"
+DEFAULT_ADD_PROXY="sim"
+DEFAULT_CHANGE_TZ="sim"
 DEFAULT_INSTALL_NFS="none"
-DEFAULT_NETWORK_IP=""
+DEFAULT_NETWORK_IP="172.26.0.0/16"
 DEFAULT_SERVER_IP=""
-DEFAULT_INSTALL_DOCKER="yes"
+DEFAULT_INSTALL_DOCKER="não"
 DEFAULT_NFS_SERVER_PATH="/mnt/shared"
 DEFAULT_NFS_CLIENT_PATH="/mnt/nfs"
 DEFAULT_INSTALL_PORTAINER="none"  # Adicionado
-DEFAULT_CHANGE_ROOT_PASSWORD="yes"  # Adicionado
+DEFAULT_CHANGE_ROOT_PASSWORD="sim"  # Adicionado
 DEFAULT_SWARM_ROLE="none"  # Adicionado
 DEFAULT_MANAGER_TOKEN=""  # Adicionado
 DEFAULT_WORKER_TOKEN=""  # Adicionado
@@ -130,7 +130,7 @@ sudo apt update -y && sudo apt upgrade -y
 # Instala os aplicativos, se necessário
 if [[ "$INSTALL_APPS" =~ ^[Ss]$ ]]
 then
-    sudo apt install -y unattended-upgrades git curl wget nano htop
+    sudo apt install unattended-upgrades git curl wget nano htop -y
 fi
 
 # Configura o login e a senha do root, se necessário
@@ -141,37 +141,50 @@ then
     echo -e "$ROOT_PASSWORD\n$ROOT_PASSWORD" | sudo passwd root
 fi
 
+# **Configuração do arquivo**
 CONFIG_FILE="/etc/apt/apt.conf.d/50unattended-upgrades"
 
-# 1. Cria o backup se não existir
-if [ ! -f ${CONFIG_FILE}.bak ]; then
-  sudo cp ${CONFIG_FILE} ${CONFIG_FILE}.bak
+# **1. Backup do arquivo original**
+
+if [[ ! -f "${CONFIG_FILE}.bak" ]]; then
+  # Cria um backup do arquivo original
+  echo "**Criando backup do arquivo original:** ${CONFIG_FILE}.bak..."
+  sudo cp "${CONFIG_FILE}" "${CONFIG_FILE}.bak"
+  echo "**Backup criado com sucesso!**"
+else
+  echo "**Backup ${CONFIG_FILE}.bak já existe.**"
 fi
 
-# 2. Deleta o arquivo original (apenas se o backup foi criado)
-if [ -f ${CONFIG_FILE}.bak ]; then
-  sudo rm ${CONFIG_FILE}
-fi
+# **2. Substituição do arquivo original pelos dados desejados**
 
-# 3. Cria um novo arquivo com o conteúdo desejado
-sudo bash -c "cat > ${CONFIG_FILE}" << EOL
-    Unattended-Upgrade::Origins-Pattern {
-    "origin=Debian,codename=\${distro_codename}-updates";
-    "origin=Debian,codename=\${distro_codename}-proposed-updates";
-    "origin=Debian,codename=\${distro_codename},label=Debian";
-    "origin=Debian,codename=\${distro_codename},label=Debian-Security";
-    "origin=Debian,codename=\${distro_codename}-security,label=Debian-Security";
-    };
+echo "**Substituindo o arquivo original pelos dados desejados:**"
+sudo bash -c "cat > ${CONFIG_FILE} << EOF
+# Configurações de atualização automática
 
-    Unattended-Upgrade::AutoFixInterruptedDpkg "true";
-    Unattended-Upgrade::MinimalSteps "true";
-    Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-    Unattended-Upgrade::Remove-Unused-Dependencies "true";
-    Unattended-Upgrade::Automatic-Reboot "true";
-    Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
-    Unattended-Upgrade::SyslogEnable "true";
-    Unattended-Upgrade::Allow-APT-Mark-Fallback "true";
-    EOL
+Unattended-Upgrade::Origins-Pattern {
+  # Lista de repositórios de atualização automática
+  "origin=Debian,codename=\${distro_codename}-updates"; # Atualizações estáveis
+  "origin=Debian,codename=\${distro_codename}-proposed-updates"; # Atualizações propostas
+  "origin=Debian,codename=\${distro_codename},label=Debian"; # Repositório Debian principal
+  "origin=Debian,codename=\${distro_codename},label=Debian-Security"; # Atualizações de segurança Debian
+  "origin=Debian,codename=\${distro_codename}-security,label=Debian-Security"; # Atualizações de segurança urgentes
+};
+
+# Configurações adicionais
+
+Unattended-Upgrade::AutoFixInterruptedDpkg "true"; # Corrige automaticamente pacotes de atualização interrompidos
+Unattended-Upgrade::MinimalSteps "true"; # Minimiza o número de etapas durante a atualização
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true"; # Remove pacotes de kernel antigos e não utilizados
+Unattended-Upgrade::Remove-Unused-Dependencies "true"; # Remove dependências não utilizadas
+Unattended-Upgrade::Automatic-Reboot "true"; # Reinicia automaticamente o sistema após a atualização
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true"; # Permite reiniciar o sistema mesmo com usuários conectados
+Unattended-Upgrade::SyslogEnable "true"; # Registra mensagens de atualização no syslog
+Unattended-Upgrade::Allow-APT-Mark-Fallback "true"; # Permite que o APT marque pacotes como "necessários" para atualização
+EOF"
+
+echo "**Arquivo substituído com sucesso!**"
+
+echo "**Operação concluída!**"
 
 # Adiciona o proxy para GitHub IPv6, se necessário
 if [[ "$ADD_PROXY" =~ ^[Ss]$ ]]
@@ -266,6 +279,8 @@ then
         sudo docker volume create portainer_data
         sudo docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest
         echo "Portainer Enterprise instalado com sucesso!"
+    fi
+fi
 
 # Informa ao usuário a senha do root, se necessário
 if [[ "$CHANGE_ROOT_PASSWORD" =~ ^[Ss]$ ]]  # Adicionado
