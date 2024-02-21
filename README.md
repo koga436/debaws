@@ -1,4 +1,4 @@
-## Readme.md Completo e Detalhado para o Script de Configuração Automática do Debian
+## DEB AWS - Script de configuração automática pra debian na AWS
 
 **Introdução:**
 
