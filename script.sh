@@ -13,6 +13,9 @@ DEFAULT_NFS_SERVER_PATH="/mnt/shared"
 DEFAULT_NFS_CLIENT_PATH="/mnt/nfs"
 DEFAULT_INSTALL_PORTAINER="none"  # Adicionado
 DEFAULT_CHANGE_ROOT_PASSWORD="yes"  # Adicionado
+DEFAULT_SWARM_ROLE="none"  # Adicionado
+DEFAULT_MANAGER_TOKEN=""  # Adicionado
+DEFAULT_WORKER_TOKEN=""  # Adicionado
 
 # Pergunta ao usuário se o script deve ser executado silenciosamente
 read -p "Executar silenciosamente? (s/n) " SILENT
@@ -30,6 +33,10 @@ then
     NFS_CLIENT_PATH=$DEFAULT_NFS_CLIENT_PATH
     INSTALL_PORTAINER=$DEFAULT_INSTALL_PORTAINER  # Adicionado
     CHANGE_ROOT_PASSWORD=$DEFAULT_CHANGE_ROOT_PASSWORD  # Adicionado
+    INSTALL_SWARM=$DEFAULT_INSTALL_SWARM  # Adicionado
+    SWARM_ROLE=$DEFAULT_SWARM_ROLE  # Adicionado
+    MANAGER_TOKEN=$DEFAULT_MANAGER_TOKEN  # Adicionado
+    WORKER_TOKEN=$DEFAULT_WORKER_TOKEN  # Adicionado
 else
     if [[ "$CHANGE_ROOT_PASSWORD" =~ ^[Ss]$ ]]  # Adicionado
     then
@@ -37,6 +44,46 @@ else
         ROOT_PASSWORD=${ROOT_PASSWORD:-$DEFAULT_ROOT_PASSWORD}
     fi
 
+    if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]  # Adicionado
+    then
+        read -p "Instalar Docker Swarm? (s/n, padrão: $DEFAULT_INSTALL_SWARM) " INSTALL_SWARM  # Adicionado
+        INSTALL_SWARM=${INSTALL_SWARM:-$DEFAULT_INSTALL_SWARM}  # Adicionado
+    fi
+
+    # Pergunta ao usuário se o Docker deve ser instalado
+    if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]
+    then
+        # Se o Docker for instalado, pergunta ao usuário se o Docker Swarm deve ser instalado
+        read -p "Instalar Docker Swarm? (s/n, padrão: $DEFAULT_INSTALL_SWARM) " INSTALL_SWARM
+        INSTALL_SWARM=${INSTALL_SWARM:-$DEFAULT_INSTALL_SWARM}
+    
+        # Se o Docker Swarm for instalado, pergunta ao usuário qual função o nó deve ter no Swarm (manager ou worker)
+        if [[ "$INSTALL_SWARM" =~ ^[Ss]$ ]]
+        then
+            read -p "Função no Swarm (manager/worker, padrão: $DEFAULT_SWARM_ROLE): " SWARM_ROLE
+            SWARM_ROLE=${SWARM_ROLE:-$DEFAULT_SWARM_ROLE}
+    
+            # Se a função for "manager", pergunta ao usuário o token do manager e configura o Docker Swarm como manager
+            if [[ "$SWARM_ROLE" == "manager" ]]
+            then
+                read -p "Token do manager (padrão: $DEFAULT_MANAGER_TOKEN): " MANAGER_TOKEN
+                MANAGER_TOKEN=${MANAGER_TOKEN:-$DEFAULT_MANAGER_TOKEN}
+                echo "Configurando Docker Swarm como manager..."
+                sudo docker swarm init --advertise-addr $(hostname -i) --token $MANAGER_TOKEN
+                echo "Docker Swarm configurado como manager!"
+            # Se a função for "worker", pergunta ao usuário o token do worker e configura o Docker Swarm como worker
+            elif [[ "$SWARM_ROLE" == "worker" ]]
+            then
+                read -p "Token do worker (padrão: $DEFAULT_WORKER_TOKEN): " WORKER_TOKEN
+                WORKER_TOKEN=${WORKER_TOKEN:-$DEFAULT_WORKER_TOKEN}
+                echo "Configurando Docker Swarm como worker..."
+                sudo docker swarm join --token $WORKER_TOKEN
+                echo "Docker Swarm configurado como worker!"
+            fi
+        fi
+    fi
+
+    
     read -p "Instalar aplicativos (unattended-upgrades git curl wget nano htop)? (s/n, padrão: $DEFAULT_INSTALL_APPS) " INSTALL_APPS
     INSTALL_APPS=${INSTALL_APPS:-$DEFAULT_INSTALL_APPS}
 
@@ -135,6 +182,38 @@ if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]
 then
     curl -fsSL https://get.docker.com -o get-docker.sh
     sudo sh get-docker.sh
+fi
+
+# Instala o Docker Swarm, se necessário
+if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]] && [[ "$INSTALL_SWARM" =~ ^[Ss]$ ]]
+then
+  echo "Instalando Docker Swarm..."
+
+  if [[ "$DEFAULT_SWARM_ROLE" == "none" ]]; then
+    # Executa o `sudo docker swarm init` apenas se a opção for "none"
+    sudo docker swarm init
+    echo "Docker Swarm instalado com sucesso!"
+  else
+    # Configuração para manager ou worker
+    read -p "Função no Swarm (manager/worker, padrão: $DEFAULT_SWARM_ROLE): " SWARM_ROLE
+    SWARM_ROLE=${SWARM_ROLE:-$DEFAULT_SWARM_ROLE}
+
+    if [[ "$SWARM_ROLE" == "manager" ]]; then
+      # Configuração para manager
+      read -p "Token do manager (padrão: $DEFAULT_MANAGER_TOKEN): " MANAGER_TOKEN
+      MANAGER_TOKEN=${MANAGER_TOKEN:-$DEFAULT_MANAGER_TOKEN}
+      echo "Configurando Docker Swarm como manager..."
+      sudo docker swarm join --token $MANAGER_TOKEN
+      echo "Docker Swarm configurado como manager!"
+    elif [[ "$SWARM_ROLE" == "worker" ]]; then
+      # Configuração para worker
+      read -p "Token do worker (padrão: $DEFAULT_WORKER_TOKEN): " WORKER_TOKEN
+      WORKER_TOKEN=${WORKER_TOKEN:-$DEFAULT_WORKER_TOKEN}
+      echo "Configurando Docker Swarm como worker..."
+      sudo docker swarm join --token $WORKER_TOKEN
+      echo "Docker Swarm configurado como worker!"
+    fi
+  fi
 fi
 
 # Instala e configura o NFS, se necessário
