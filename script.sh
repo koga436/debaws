@@ -141,29 +141,37 @@ then
     echo -e "$ROOT_PASSWORD\n$ROOT_PASSWORD" | sudo passwd root
 fi
 
-# Configura o unattended-upgrades
 CONFIG_FILE="/etc/apt/apt.conf.d/50unattended-upgrades"
-if [ ! -f ${CONFIG_FILE}.bak ]; then
-    sudo cp ${CONFIG_FILE} ${CONFIG_FILE}.bak
-fi
-sudo bash -c "cat > ${CONFIG_FILE}" << EOL
-Unattended-Upgrade::Origins-Pattern {
-        "origin=Debian,codename=\${distro_codename}-updates";
-        "origin=Debian,codename=\${distro_codename}-proposed-updates";
-        "origin=Debian,codename=\${distro_codename},label=Debian";
-        "origin=Debian,codename=\${distro_codename},label=Debian-Security";
-        "origin=Debian,codename=\${distro_codename}-security,label=Debian-Security";
-};
 
-Unattended-Upgrade::AutoFixInterruptedDpkg "true";
-Unattended-Upgrade::MinimalSteps "true";
-Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-Unattended-Upgrade::Remove-Unused-Dependencies "true";
-Unattended-Upgrade::Automatic-Reboot "true";
-Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
-Unattended-Upgrade::SyslogEnable "true";
-Unattended-Upgrade::Allow-APT-Mark-Fallback "true";
-EOL
+# 1. Cria o backup se não existir
+if [ ! -f ${CONFIG_FILE}.bak ]; then
+  sudo cp ${CONFIG_FILE} ${CONFIG_FILE}.bak
+fi
+
+# 2. Deleta o arquivo original (apenas se o backup foi criado)
+if [ -f ${CONFIG_FILE}.bak ]; then
+  sudo rm ${CONFIG_FILE}
+fi
+
+# 3. Cria um novo arquivo com o conteúdo desejado
+sudo bash -c "cat > ${CONFIG_FILE}" << EOL
+    Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=\${distro_codename}-updates";
+    "origin=Debian,codename=\${distro_codename}-proposed-updates";
+    "origin=Debian,codename=\${distro_codename},label=Debian";
+    "origin=Debian,codename=\${distro_codename},label=Debian-Security";
+    "origin=Debian,codename=\${distro_codename}-security,label=Debian-Security";
+    };
+
+    Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+    Unattended-Upgrade::MinimalSteps "true";
+    Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+    Unattended-Upgrade::Remove-Unused-Dependencies "true";
+    Unattended-Upgrade::Automatic-Reboot "true";
+    Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+    Unattended-Upgrade::SyslogEnable "true";
+    Unattended-Upgrade::Allow-APT-Mark-Fallback "true";
+    EOL
 
 # Adiciona o proxy para GitHub IPv6, se necessário
 if [[ "$ADD_PROXY" =~ ^[Ss]$ ]]
