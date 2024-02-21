@@ -12,6 +12,7 @@ DEFAULT_INSTALL_DOCKER="yes"
 DEFAULT_NFS_SERVER_PATH="/mnt/shared"
 DEFAULT_NFS_CLIENT_PATH="/mnt/nfs"
 DEFAULT_INSTALL_PORTAINER="none"  # Adicionado
+DEFAULT_CHANGE_ROOT_PASSWORD="yes"  # Adicionado
 
 # Pergunta ao usuário se o script deve ser executado silenciosamente
 read -p "Executar silenciosamente? (s/n) " SILENT
@@ -28,9 +29,13 @@ then
     NFS_SERVER_PATH=$DEFAULT_NFS_SERVER_PATH
     NFS_CLIENT_PATH=$DEFAULT_NFS_CLIENT_PATH
     INSTALL_PORTAINER=$DEFAULT_INSTALL_PORTAINER  # Adicionado
+    CHANGE_ROOT_PASSWORD=$DEFAULT_CHANGE_ROOT_PASSWORD  # Adicionado
 else
-    read -p "Senha do root (padrão: $DEFAULT_ROOT_PASSWORD): " ROOT_PASSWORD
-    ROOT_PASSWORD=${ROOT_PASSWORD:-$DEFAULT_ROOT_PASSWORD}
+    if [[ "$CHANGE_ROOT_PASSWORD" =~ ^[Ss]$ ]]  # Adicionado
+    then
+        read -p "Senha do root (padrão: $DEFAULT_ROOT_PASSWORD): " ROOT_PASSWORD
+        ROOT_PASSWORD=${ROOT_PASSWORD:-$DEFAULT_ROOT_PASSWORD}
+    fi
 
     read -p "Instalar aplicativos (unattended-upgrades git curl wget nano htop)? (s/n, padrão: $DEFAULT_INSTALL_APPS) " INSTALL_APPS
     INSTALL_APPS=${INSTALL_APPS:-$DEFAULT_INSTALL_APPS}
@@ -65,8 +70,11 @@ else
     read -p "Instalar Docker? (s/n, padrão: $DEFAULT_INSTALL_DOCKER) " INSTALL_DOCKER
     INSTALL_DOCKER=${INSTALL_DOCKER:-$DEFAULT_INSTALL_DOCKER}
 
-    read -p "Instalar Portainer? (none/community/enterprise, padrão: $DEFAULT_INSTALL_PORTAINER) " INSTALL_PORTAINER  # Adicionado
-    INSTALL_PORTAINER=${INSTALL_PORTAINER:-$DEFAULT_INSTALL_PORTAINER}  # Adicionado
+    if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]  # Adicionado
+    then
+        read -p "Instalar Portainer? (none/community/enterprise, padrão: $DEFAULT_INSTALL_PORTAINER) " INSTALL_PORTAINER  # Adicionado
+        INSTALL_PORTAINER=${INSTALL_PORTAINER:-$DEFAULT_INSTALL_PORTAINER}  # Adicionado
+    fi
 fi
 
 # Atualiza o sistema
@@ -78,10 +86,13 @@ then
     sudo apt install -y unattended-upgrades git curl wget nano htop
 fi
 
-# Configura o login e a senha do root
-sudo touch ~/.hushlogin
-echo -e "PermitRootLogin yes\nPasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/aws.conf
-echo -e "$ROOT_PASSWORD\n$ROOT_PASSWORD" | sudo passwd root
+# Configura o login e a senha do root, se necessário
+if [[ "$CHANGE_ROOT_PASSWORD" =~ ^[Ss]$ ]]  # Adicionado
+then
+    sudo touch ~/.hushlogin
+    echo -e "PermitRootLogin yes\nPasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/aws.conf
+    echo -e "$ROOT_PASSWORD\n$ROOT_PASSWORD" | sudo passwd root
+fi
 
 # Configura o unattended-upgrades
 CONFIG_FILE="/etc/apt/apt.conf.d/50unattended-upgrades"
@@ -103,7 +114,7 @@ Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
 Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
-Unattended-Upgrade::SyslogEnable "false";
+Unattended-Upgrade::SyslogEnable "true";
 Unattended-Upgrade::Allow-APT-Mark-Fallback "true";
 EOL
 
@@ -124,9 +135,6 @@ if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]]
 then
     curl -fsSL https://get.docker.com -o get-docker.sh
     sudo sh get-docker.sh
-else
-    echo "Docker não está instalado. Por favor, instale o Docker antes de tentar instalar o Portainer."
-    exit 1
 fi
 
 # Instala e configura o NFS, se necessário
@@ -156,7 +164,7 @@ then
 fi
 
 # Instala o Portainer, se necessário
-if [[ "$INSTALL_PORTAINER" =~ ^(community|enterprise)$ ]]
+if [[ "$INSTALL_DOCKER" =~ ^[Ss]$ ]] && [[ "$INSTALL_PORTAINER" =~ ^(community|enterprise)$ ]]  # Modificado
 then
     # Instala o Portainer
     if [[ "$INSTALL_PORTAINER" == "community" ]]
@@ -171,8 +179,10 @@ then
         sudo docker volume create portainer_data
         sudo docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest
         echo "Portainer Enterprise instalado com sucesso!"
-    fi
+
+# Informa ao usuário a senha do root, se necessário
+if [[ "$CHANGE_ROOT_PASSWORD" =~ ^[Ss]$ ]]  # Adicionado
+then
+    echo "Sua senha de root é $ROOT_PASSWORD"
 fi
 
-# Informa ao usuário a senha do root
-echo "Sua senha de root é $ROOT_PASSWORD"
